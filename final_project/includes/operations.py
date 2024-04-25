@@ -4,6 +4,11 @@ from pyspark.sql.streaming import DataStreamWriter
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC Defining **Raw** functions
+
+# COMMAND ----------
+
 def read_stream_raw(spark: SparkSession) -> DataFrame:
     """
     Reads stream from `TWEET_SOURCE_PATH` with schema enforcement.
@@ -49,3 +54,17 @@ def create_stream_writer(
         .option("checkpointLocation", checkpoint)
         .queryName(queryName)
     )
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Defining **Bronze** functions
+
+# COMMAND ----------
+
+def read_stream_delta(spark: SparkSession) -> DataFrame:
+    return spark.readStream.format("delta").load(BRONZE_DELTA)
+
+# COMMAND ----------
+
+
