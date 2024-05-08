@@ -77,4 +77,5 @@ def read_stream_bronze(spark: SparkSession) -> DataFrame:
 
 # COMMAND ----------
 
-
+def read_stream_silver(spark: SparkSession) -> DataFrame:
+    return spark.readStream.format("delta").load(SILVER_DELTA)
