@@ -5,6 +5,29 @@ from pyspark.sql.streaming import DataStreamWriter
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC Defining **Common** questions
+
+# COMMAND ----------
+
+def create_stream_writer(
+    df: DataFrame,
+    checkpoint: str,
+    queryName: str,
+    mode: str = "append",
+) -> DataStreamWriter:
+    """
+    Creates stream writer object with checkpointing at `checkpoint`
+    """
+    return (
+        df.writeStream.format("delta")
+        .outputMode(mode)
+        .option("checkpointLocation", checkpoint)
+        .queryName(queryName)
+    )
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC Defining **Raw** functions
 
 # COMMAND ----------
@@ -39,31 +62,18 @@ def transform_raw(df: DataFrame) -> DataFrame:
 
 # COMMAND ----------
 
-def create_stream_writer(
-    df: DataFrame,
-    checkpoint: str,
-    queryName: str,
-    mode: str = "append",
-) -> DataStreamWriter:
-    """
-    Creates stream writer object with checkpointing at `checkpoint`
-    """
-    return (
-        df.writeStream.format("delta")
-        .outputMode(mode)
-        .option("checkpointLocation", checkpoint)
-        .queryName(queryName)
-    )
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC Defining **Bronze** functions
 
 # COMMAND ----------
 
-def read_stream_delta(spark: SparkSession) -> DataFrame:
+def read_stream_bronze(spark: SparkSession) -> DataFrame:
     return spark.readStream.format("delta").load(BRONZE_DELTA)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Defining **Silver** functions
 
 # COMMAND ----------
 
