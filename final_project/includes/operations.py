@@ -1,11 +1,17 @@
 # Databricks notebook source
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.streaming import DataStreamWriter
+from pyspark.sql.functions import (
+    regexp_extract,
+    to_timestamp,
+    expr,
+    regexp_replace,
+)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Defining **Common** questions
+# MAGIC Defining **Common** functions
 
 # COMMAND ----------
 
@@ -68,7 +74,23 @@ def transform_raw(df: DataFrame) -> DataFrame:
 # COMMAND ----------
 
 def read_stream_bronze(spark: SparkSession) -> DataFrame:
+    """
+    Reads stream from `BRONZE_DELTA`.
+    """
     return spark.readStream.format("delta").load(BRONZE_DELTA)
+
+# COMMAND ----------
+
+def transform_bronze(df: DataFrame) -> DataFrame:
+    """
+    Transforms `df` to include `timestamp`, `mention` and `cleaned_text` columns.
+    """
+    return (
+        df.withColumn("timestamp", to_timestamp("processing_time"))
+        .withColumn("mention", regexp_extract(col("text"), "@\\w+", 0))
+        .withColumn("cleaned_text", regexp_replace(col("text"), "@\\w+", ""))
+        .select("timestamp", "mention", "cleaned_text", "sentiment")
+    )
 
 # COMMAND ----------
 
