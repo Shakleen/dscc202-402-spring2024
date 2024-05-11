@@ -13,6 +13,7 @@ import mlflow
 import matplotlib.pyplot as plt
 import seaborn as sns
 from mlflow.tracking.client import MlflowClient
+from pyspark.sql.functions import min, max, count, when
 
 # COMMAND ----------
 
@@ -29,11 +30,30 @@ def create_stream_writer(
 ) -> DataStreamWriter:
     """
     Creates stream writer object with checkpointing at `checkpoint`
+    Sets the trigger to be 5 seconds
     """
     return (
         df.writeStream.format("delta")
         .outputMode(mode)
+        .trigger(processingTime="5 seconds")
         .option("checkpointLocation", checkpoint)
+        .queryName(queryName)
+    )
+
+# COMMAND ----------
+
+def create_stream_writer_to_memory(
+    df: DataFrame,
+    queryName: str,
+    mode: str = "complete",
+) -> DataStreamWriter:
+    """
+    Creates stream writer object with checkpointing at `checkpoint`
+    Sets the trigger to be 5 seconds
+    """
+    return (
+        df.writeStream.format("memory")
+        .outputMode(mode)
         .queryName(queryName)
     )
 
@@ -155,19 +175,22 @@ def read_stream_gold(spark: SparkSession) -> DataFrame:
 
 # COMMAND ----------
 
-def query_non_empty_mentions(goldDF):
-    return goldDF.filter(goldDF.mention.isNotNull()).filter(goldDF.mention != "")
+def query_non_empty_mentions(df):
+    return df.filter(df.mention.isNotNull()).filter(df.mention != "")
 
 # COMMAND ----------
 
-def query_mention_sentiment_count(goldDF):
+def transform_gold(df):
     return (
-        query_non_empty_mentions(goldDF)
+        query_non_empty_mentions(df)
         .groupby("mention")
         .agg(
-            count(when(goldDF.sentiment == "neutral", 1)).alias("neutral_count"),
-            count(when(goldDF.sentiment == "positive", 1)).alias("positive_count"),
-            count(when(goldDF.sentiment == "negative", 1)).alias("negative_count"),
+            count(when(df.sentiment == "neutral", 1)).alias("neutral_count"),
+            count(when(df.sentiment == "positive", 1)).alias("positive_count"),
+            count(when(df.sentiment == "negative", 1)).alias("negative_count"),
+            count("mention").alias("total"),
+            min("timestamp").alias("min_timestamp"),
+            max("timestamp").alias("max_timestamp")
         )
     )
 
@@ -180,16 +203,16 @@ def query_mention_sentiment_count(goldDF):
 
 def get_tp_tn_fp_fn(df):
     true_positives = df.filter(
-        (df.sentiment_id == 1) & (df.predicted_sentiment_id == 1)
+        (df.sentiment == "positive") & (df.predicted_sentiment == "POS")
     ).count()
     true_negatives = df.filter(
-        (df.sentiment_id == 0) & (df.predicted_sentiment_id == 0)
+        (df.sentiment == "negative") & (df.predicted_sentiment == "NEG")
     ).count()
     false_positives = df.filter(
-        (df.sentiment_id == 0) & (df.predicted_sentiment_id == 1)
+        (df.sentiment == "negative") & (df.predicted_sentiment == "POS")
     ).count()
     false_negatives = df.filter(
-        (df.sentiment_id == 1) & (df.predicted_sentiment_id == 0)
+        (df.sentiment == "positive") & (df.predicted_sentiment_id == "NEG")
     ).count()
 
     return true_positives, true_negatives, false_positives, false_negatives
